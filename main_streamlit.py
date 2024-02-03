@@ -108,7 +108,7 @@ def asset_search(order: str = "desc",
                 #  country: str = None, 
                  num: str = "7") -> dict:
     num = int(num)
-    payload = {'order': order, 'num': num, 'withPeople': "true"}
+    payload = {'order': order, 'num': num, 'withPeople': "true", "withExif": "true"}
     if takenAfter:
         payload['takenAfter'] = takenAfter
     if takenBefore:
