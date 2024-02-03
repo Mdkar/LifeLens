@@ -100,6 +100,40 @@ def get_num_assets(name: str) -> int:
     person = search_person(name)
     return get_num_assets_from_id(person["id"])
 
+def asset_search(order: str = "desc", 
+                 takenAfter: str = None, 
+                 takenBefore: str = None, 
+                 city: str = None, 
+                #  state: str = None,
+                #  country: str = None, 
+                 num: str = "7") -> dict:
+    num = int(num)
+    payload = {'order': order, 'num': num, 'withPeople': "true"}
+    if takenAfter:
+        payload['takenAfter'] = takenAfter
+    if takenBefore:
+        payload['takenBefore'] = takenBefore
+    if city:
+        payload['city'] = city
+    # if state:
+    #     payload['state'] = state
+    # if country:
+    #     payload['country'] = country
+    print("asset searching for asset " + str(payload))
+    url = BASE_URL + "/api/assets/"
+    headers = {
+        'Accept': 'application/json',
+        'x-api-key': IMMICH_API_KEY
+    }
+    response = requests.request("GET", url, headers=headers, params=payload)
+    items = response.json()
+    if "assets" in items and "items" in items["assets"]:
+        items = items["assets"]["items"]
+    if len(items) > num:
+        items = items[:num]
+    out = [trim_json(asset) for asset in items]
+    return out
+
 def smart_search(query: str, recent: str="false", num: str = "7") -> dict:
     print("smart searching for " + query + " " + recent + " " + num)
     num = int(num)
@@ -176,7 +210,7 @@ def get_asset_details(id: str) -> dict:
 
 
 
-funcs = [get_birthday, get_num_assets, get_random_asset, get_person_name, get_asset_details, get_specific_location, search_person_assets, show_image, smart_search]
+funcs = [get_birthday, get_num_assets, get_random_asset, get_person_name, get_asset_details, get_specific_location, search_person_assets, show_image, smart_search, asset_search]
 available_funcs = {f.__name__: f for f in funcs}
 
 
@@ -194,7 +228,6 @@ if "retry_error" not in st.session_state:
 
 if "thumbs" not in st.session_state:
     st.session_state.thumbs = []
-    # show_image("2b81d638-659f-4e71-b3bb-84ff694eb013")
 
 # Set up the page
 st.set_page_config(page_title="LifeLens", page_icon=":camera:")
@@ -202,7 +235,7 @@ st.sidebar.title("LifeLens")
 st.sidebar.divider()
 st.sidebar.markdown("Mine your Immich photo library for context. Ask about your life.")
 st.sidebar.divider()
-st.sidebar.image(st.session_state.thumbs)
+# st.sidebar.image(st.session_state.thumbs)
 
 # Initialize OpenAI assistant
 if "assistant" not in st.session_state:
