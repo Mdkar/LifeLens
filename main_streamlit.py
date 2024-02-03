@@ -100,6 +100,26 @@ def get_num_assets(name: str) -> int:
     person = search_person(name)
     return get_num_assets_from_id(person["id"])
 
+def smart_search(query: str, recent: str="false", num: str = "7") -> dict:
+    print("smart searching for " + query + " " + recent + " " + num)
+    num = int(num)
+    url = BASE_URL + "/api/search/"
+    payload = {'query': query, 'recent': recent, 'smart': "true"}
+    headers = {
+        'Accept': 'application/json',
+        'x-api-key': IMMICH_API_KEY
+    }
+    response = requests.request("GET", url, headers=headers, params=payload)
+    items = response.json()
+    if "assets" in items and "items" in items["assets"]:
+        items = items["assets"]["items"]
+    if recent == "true":
+        items.sort(key=lambda x: x["fileCreatedAt"], reverse=True)
+    if len(items) > 10:
+        items = items[:10]
+    out = [trim_json(asset) for asset in items]
+    return out
+
 def get_birthday(name: str) -> str:
     person = search_person(name)
     bday = person["birthDate"]
@@ -156,7 +176,7 @@ def get_asset_details(id: str) -> dict:
 
 
 
-funcs = [get_birthday, get_num_assets, get_random_asset, get_person_name, get_asset_details, get_specific_location, search_person_assets, show_image]
+funcs = [get_birthday, get_num_assets, get_random_asset, get_person_name, get_asset_details, get_specific_location, search_person_assets, show_image, smart_search]
 available_funcs = {f.__name__: f for f in funcs}
 
 
