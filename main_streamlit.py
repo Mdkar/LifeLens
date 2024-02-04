@@ -1,6 +1,3 @@
-# a simple chatbot that uses the OpenAI Assistant API
-# to run the app, use the command: streamlit run main_streamlit.py
-
 import streamlit as st
 import openai
 import os
@@ -11,6 +8,7 @@ from openai.types.beta.threads.run import Run
 import json
 import requests
 import googlemaps
+from datetime import datetime
 
 # Load the environment variables
 load_dotenv()
@@ -25,7 +23,7 @@ client = openai.OpenAI()
 # Your chosen model
 MODEL = "gpt-3.5-turbo" 
 
-
+# Google Maps API used only for better reverse geocoding of specific coordinates
 gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
 
 result_types = ["colloquial_area", "sublocality", "neighborhood", "premise", "subpremise", "natural_feature", "airport", "park", "point_of_interest"]
@@ -71,7 +69,9 @@ def search_person(name: str) -> dict:
         'x-api-key': IMMICH_API_KEY
     }
     response = requests.request("GET", url, headers=headers, params=payload)
-    return response.json()[0]
+    rj = response.json()
+    if len(rj) > 0:
+        return rj[0]
 
 def search_person_assets(name: str) -> list:
     person = search_person(name)
@@ -208,9 +208,17 @@ def get_asset_details(id: str) -> dict:
     response = requests.request("GET", url, headers=headers)
     return trim_json(response.json())
 
+funcs = [get_birthday, 
+         get_num_assets, 
+         get_random_asset, 
+         get_person_name, 
+         get_asset_details, 
+         get_specific_location, 
+         search_person_assets, 
+         show_image, 
+         smart_search, 
+         asset_search]
 
-
-funcs = [get_birthday, get_num_assets, get_random_asset, get_person_name, get_asset_details, get_specific_location, search_person_assets, show_image, smart_search, asset_search]
 available_funcs = {f.__name__: f for f in funcs}
 
 
@@ -235,11 +243,238 @@ st.sidebar.title("LifeLens")
 st.sidebar.divider()
 st.sidebar.markdown("Mine your Immich photo library for context. Ask about your life.")
 st.sidebar.divider()
-# st.sidebar.image(st.session_state.thumbs)
+st.sidebar.image(st.session_state.thumbs)
 
+openai_tools_list = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_num_assets",
+            "description": "Get the number of photos featuring a particular person",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The name of the person you are looking for"
+                }
+                },
+                "required": [
+                "name"
+                ]
+            }
+        }
+    }, {
+        "type": "function",
+        "function": {
+            "name": "get_birthday",
+            "description": "Get a person's birthday date",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The name of the person"
+                }
+                },
+                "required": [
+                "name"
+                ]
+            }
+        }
+    }, {
+        "type": "function",
+        "function": {
+            "name": "get_random_asset",
+            "description": "Get a list of asset objects representing random images from the library. The user is automatically shown these images.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                "number": {
+                    "type": "string",
+                    "description": "The number of images to return"
+                }
+                },
+                "required": []
+            }
+        }
+    }, {
+        "type": "function",
+        "function": {
+            "name": "get_person_name",
+            "description": "Get a person's name from their UUID",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                "uuid": {
+                    "type": "string",
+                    "description": "The id of the person"
+                }
+                },
+                "required": [
+                "uuid"
+                ]
+            }
+        }
+    }, {
+        "type": "function",
+        "function": {
+            "name": "get_asset_details",
+            "description": "Get all the details of an image using it's asset id. Information returned may include UUIDs of people tagged in the image as well as some objects in the scene.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "The id of the asset"
+                }
+                },
+                "required": [
+                "id"
+                ]
+            }
+        }
+    }, {
+        # Remove this if not using the Google Maps API
+        "type": "function",
+        "function": {
+            "name": "get_specific_location",
+            "description": "Get a list of location names for a given latitude and longitude",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                "lat": {
+                    "type": "string",
+                    "description": "Latitude"
+                },
+                "lng": {
+                    "type": "string",
+                    "description": "Longitude"
+                }
+                },
+                "required": [
+                "lat",
+                "lng"
+                ]
+            }
+        }
+    }, {
+        "type": "function",
+        "function": {
+            "name": "search_person_assets",
+            "description": "Get a list of asset objects representing images featuring a particular person. Only up to 5 of the latest images will be returned. You must use the asset ids returned to get more information about the photos.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The name of the person"
+                }
+                },
+                "required": [
+                "name"
+                ]
+            }
+        }
+    }, {
+        "type": "function",
+        "function": {
+            "name": "show_image",
+            "description": "Show the image associated with the given asset id to the user",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "The id of the asset"
+                }
+                },
+                "required": [
+                "id"
+                ]
+            }
+        }
+    }, {
+        "type": "function",
+        "function": {
+            "name": "smart_search",
+            "description": "Search for a list of asset objects representing images. The search is a similarity search comparing CLIP embeddings of the images to the query.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The query to search"
+                },
+                "recent": {
+                    "type": "string",
+                    "enum": [
+                    "true",
+                    "false"
+                    ],
+                    "description": "Whether to sort results by most recent"
+                },
+                "num": {
+                    "type": "string",
+                    "description": "number of results to return, defaults to 7"
+                }
+                },
+                "required": [
+                "query"
+                ]
+            }
+        }
+    }, {
+        "type": "function",
+        "function": {
+            "name": "asset_search",
+            "description": "Search for a list of asset objects representing images using only image metadata. Useful to find images taken at a particular time or city.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                "order": {
+                    "type": "string",
+                    "enum": [
+                    "desc",
+                    "asc"
+                    ],
+                    "description": "Ascending or descending (descending lists most recent first and is default)"
+                },
+                "takenBefore": {
+                    "type": "string",
+                    "description": "Datetime in YYYY-MM-DD format. Searches for images taken before this date."
+                },
+                "takenAfter": {
+                    "type": "string",
+                    "description": "Datetime in YYYY-MM-DD format. Searches for images taken after this date."
+                },
+                "city": {
+                    "type": "string",
+                    "description": "City to search for"
+                },
+                "num": {
+                    "type": "string",
+                    "description": "Maximum number of results to return, defaults to 7"
+                }
+                },
+                "required": []
+            }
+        }
+    }
+]
 # Initialize OpenAI assistant
 if "assistant" not in st.session_state:
-    st.session_state.assistant = openai.beta.assistants.retrieve(os.getenv("OPENAI_ASSISTANT"))
+    assistant = client.beta.assistants.create(
+        name = "Immich LifeLens",
+        instructions = f"You can answer questions about a person's life based on information stored in their photos library. \
+                        You can query relevant information from the photos library using the provided functions. \
+                        Today is {datetime.today().strftime('%B %d, %Y')}. \
+                        You must not reveal details about assets or images unless specifically prompted to.",
+        tools = openai_tools_list,
+        model = MODEL
+    )
+    # st.session_state.assistant = openai.beta.assistants.retrieve(os.getenv("OPENAI_ASSISTANT")) # if you want to use an existing assistant
+    st.session_state.assistant = assistant
     st.session_state.thread = client.beta.threads.create(
         metadata={'session_id': st.session_state.session_id}
     )
