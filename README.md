@@ -1,5 +1,5 @@
 # Immich LifeLens
- Chatbot that uses the Immich API to extract context from your photo library
+ Chatbot that uses the [Immich](https://immich.app) API to extract context from your photo library
 
 To run the app, use the command: streamlit run main_streamlit.py
 
@@ -20,3 +20,7 @@ These have all worked at some point, but are fairly inconsistant. This can proba
 I did this project in 24 hours as part of TartanHacks 2024.
 
 This was inspired by Apple's Journal App as well as Tab's AI companion. People take lots of images every day so a photo library is a powerful tool to extract contextual data about a person's life. Immich has a flexible open source API which makes it easy to pipe this context into a chatbot. This tool is a proof of concept to demonstrate this.
+
+No images are sent to OpenAI, making this a very cost effective and privacy concious app.
+
+Future improvements may include adding a captioning endpoint so you can prompt "Write a journal entry for what I did today" and the bot can use that day's images to do that. Captioning could use the built-in CLIP embeddings or a seperate model.
